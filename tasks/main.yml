@@ -1,0 +1,62 @@
+---
+- name: "Get and install Node Exporter"
+  block:
+
+  - name: "Get checksum list"
+    ansible.builtin.set_fact:
+      node_exporter_checksums_fact: "{{ lookup('url', node_exporter_checksum_url, wantlist=True) | list }}"
+    run_once: true
+    until: node_exporter_checksums_fact is search('linux-' + arch + '.tar.gz')
+    retries: 5
+
+  - name: "Get checksum to check target archive"
+    ansible.builtin.set_fact:
+      node_exporter_checksum_fact: "{{ item.split(' ')[0] }}"
+    with_items: "{{ node_exporter_checksums_fact }}"
+    when:
+      - "('linux-' + arch + '.tar.gz') in item"
+
+  - name: "Download Node Exporter binary"
+    become: false
+    ansible.builtin.get_url:
+      url: "{{ node_exporter_url }}"
+      dest: "/tmp/{{ node_exporter_archive }}"
+      mode: 0644
+      checksum: "sha256:{{ node_exporter_checksum_fact }}"
+    retries: 5
+    delay: 2
+    delegate_to: localhost
+
+  - name: "Unarchive Node Exporter"
+    become: false
+    ansible.builtin.unarchive:
+      src: "/tmp/{{ node_exporter_archive }}"
+      dest: "/tmp/"
+    delegate_to: localhost
+
+  - name: "Copy Node Exporter binary to server"
+    ansible.builtin.copy:
+      src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-{{ arch }}/node_exporter"
+      dest: "{{ node_exporter_install_dir }}/"
+      mode: 0755
+      owner: root
+      group: root
+
+
+  - name: "Copy systemd unit"
+    ansible.builtin.template:
+      src: node_exporter.service.j2
+      dest: /etc/systemd/system/node_exporter.service
+      owner: root
+      group: root
+      mode: 0644
+    notify:
+      "Restart Prometheus Node Exporter"
+
+  - name: "Start and enabled Node Exporter service"
+    become: true
+    ansible.builtin.systemd:
+      daemon_reload: true
+      name: node_exporter
+      state: started
+      enabled: true
