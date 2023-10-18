@@ -1,4 +1,20 @@
 ---
+- name: "Prepare steps"
+  block:
+  - name: "Add Node Exporter group"
+    ansible.builtin.group:
+      name: "{{ node_exporter_group }}"
+      state: present
+      system: true
+
+  - name: "Add Node Exporter user"
+    ansible.builtin.user:
+      name: "{{ node_exporter_user }}"
+      group: "{{ node_exporter_group }}"
+      createhome: false
+      system: true
+      shell: "/usr/sbin/nologin"
+
 - name: "Get and install Node Exporter"
   block:
 
@@ -51,12 +67,11 @@
       group: root
       mode: 0644
     notify:
-      "Restart Prometheus Node Exporter"
+      "restart node exporter"
 
   - name: "Start and enabled Node Exporter service"
     become: true
-    ansible.builtin.systemd:
-      daemon_reload: true
+    ansible.builtin.service:
       name: node_exporter
       state: started
       enabled: true
