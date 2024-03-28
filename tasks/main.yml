@@ -1,6 +1,7 @@
 ---
 - name: "Prepare steps"
   block:
+
   - name: "Add Node Exporter group"
     ansible.builtin.group:
       name: "{{ node_exporter_group }}"
@@ -15,13 +16,12 @@
       system: true
       shell: "/usr/sbin/nologin"
 
-- name: "Get and install Node Exporter"
+- name: "Get and unarchive Node Exporter"
   block:
 
   - name: "Get checksum list"
     ansible.builtin.set_fact:
       node_exporter_checksums_fact: "{{ lookup('url', node_exporter_checksum_url, wantlist=True) | list }}"
-    run_once: true
     until: node_exporter_checksums_fact is search('linux-' + arch + '.tar.gz')
     retries: 5
 
@@ -41,37 +41,41 @@
       checksum: "sha256:{{ node_exporter_checksum_fact }}"
     retries: 5
     delay: 2
-    delegate_to: localhost
 
   - name: "Unarchive Node Exporter"
     become: false
     ansible.builtin.unarchive:
       src: "/tmp/{{ node_exporter_archive }}"
       dest: "/tmp/"
-    delegate_to: localhost
+
+  run_once: true
+  delegate_to: localhost
+
+- name: "Install and start Node Exporter on target servers"
+  block:
 
   - name: "Copy Node Exporter binary to server"
     ansible.builtin.copy:
       src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-{{ arch }}/node_exporter"
       dest: "{{ node_exporter_install_dir }}/"
       mode: 0755
-      owner: root
-      group: root
+      owner: "{{ node_exporter_user }}"
+      group: "{{ node_exporter_group }}"
 
-
-  - name: "Copy systemd unit"
+  - name: "Copy systemd unit to server"
     ansible.builtin.template:
       src: node_exporter.service.j2
       dest: /etc/systemd/system/node_exporter.service
       owner: root
       group: root
       mode: 0644
-    notify:
-      "restart node exporter"
 
-  - name: "Start and enabled Node Exporter service"
-    become: true
-    ansible.builtin.service:
-      name: node_exporter
-      state: started
-      enabled: true
+  notify:
+    "restart node exporter"
+
+- name: "Start and enabled Node Exporter service"
+  become: true
+  ansible.builtin.service:
+    name: node_exporter
+    state: started
+    enabled: true
