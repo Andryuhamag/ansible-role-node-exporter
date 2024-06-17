@@ -1,6 +1,7 @@
 ---
 arch: "amd64"
-node_exporter_version: "1.6.1"
+# latest "1.8.1"
+node_exporter_version: "1.8.1"
 node_exporter_archive: "node_exporter-{{ node_exporter_version }}.linux-{{ arch }}.tar.gz"
 node_exporter_url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/{{ node_exporter_archive }}"
 node_exporter_checksum_url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/sha256sums.txt"
